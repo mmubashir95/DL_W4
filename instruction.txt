@@ -1,0 +1,16 @@
+Required library
+================
+
+PyTorch provides:
+- torch
+- torch.nn
+- torch.utils.data.TensorDataset
+- torch.utils.data.DataLoader
+
+Install the required library:
+
+python3 -m pip install torch
+
+Run the training example:
+
+python3 pytorch_training_loop.py
