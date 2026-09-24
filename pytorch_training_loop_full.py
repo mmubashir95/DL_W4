@@ -1,3 +1,5 @@
+import copy
+
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset, random_split
@@ -108,6 +110,13 @@ debug_first_batch = True
 training_loss_history = []
 validation_loss_history = []
 
+# Early stopping: stop if validation loss does not improve for this many epochs.
+patience = 5
+best_validation_loss = float("inf")
+epochs_without_improvement = 0
+# Keep an independent copy of the best weights (not a live reference).
+best_model_weights = copy.deepcopy(model.state_dict())
+
 for epoch in range(number_of_epochs):
     # -------------------------------------------------------------------------
     # Training phase starts here
@@ -200,6 +209,35 @@ for epoch in range(number_of_epochs):
         f"Training Loss: {average_training_loss:.4f} | "
         f"Validation Loss: {average_validation_loss:.4f}"
     )
+
+    # -------------------------------------------------------------------------
+    # Early stopping check
+    # -------------------------------------------------------------------------
+    # A lower validation loss means the model generalized better this epoch.
+    if average_validation_loss < best_validation_loss:
+        best_validation_loss = average_validation_loss
+        epochs_without_improvement = 0
+        # deepcopy so later optimizer.step() updates do not change this snapshot.
+        best_model_weights = copy.deepcopy(model.state_dict())
+    else:
+        # No improvement: count how many epochs in a row this has happened.
+        epochs_without_improvement += 1
+
+    # Stop once we have waited long enough without a better validation loss.
+    if epochs_without_improvement >= patience:
+        print(
+            f"Early stopping triggered at epoch {epoch + 1}.\n"
+            f"Best validation loss: {best_validation_loss:.4f}"
+        )
+        break
+
+# Restore the weights from the epoch with the best validation loss.
+# Without this, the model would keep the last-epoch weights, which may be worse.
+model.load_state_dict(best_model_weights)
+print(
+    f"\nRestored best model weights "
+    f"(validation loss: {best_validation_loss:.4f})"
+)
 
 
 # -----------------------------------------------------------------------------
