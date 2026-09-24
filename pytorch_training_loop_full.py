@@ -98,6 +98,16 @@ optimizer = torch.optim.SGD(
     lr=0.01,
 )
 
+# Reduce the learning rate when validation loss stops improving.
+# This is separate from early stopping: the scheduler shrinks the LR first;
+# early stopping may later halt training if validation still does not improve.
+scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+    optimizer,
+    mode="min",
+    factor=0.1,
+    patience=3,
+)
+
 
 # -----------------------------------------------------------------------------
 # 4. Train and validate the model
@@ -204,10 +214,26 @@ for epoch in range(number_of_epochs):
     training_loss_history.append(average_training_loss)
     validation_loss_history.append(average_validation_loss)
 
+    # -------------------------------------------------------------------------
+    # Learning-rate scheduler (once per epoch, after validation)
+    # -------------------------------------------------------------------------
+    # ReduceLROnPlateau needs the validation metric so it knows whether loss
+    # improved. Call this once per epoch — not once per training batch.
+    learning_rate_before = optimizer.param_groups[0]["lr"]
+    scheduler.step(average_validation_loss)
+    current_learning_rate = optimizer.param_groups[0]["lr"]
+
+    if current_learning_rate < learning_rate_before:
+        print(
+            f"Learning rate reduced: "
+            f"{learning_rate_before:.6f} → {current_learning_rate:.6f}"
+        )
+
     print(
         f"Epoch {epoch + 1}/{number_of_epochs} | "
         f"Training Loss: {average_training_loss:.4f} | "
-        f"Validation Loss: {average_validation_loss:.4f}"
+        f"Validation Loss: {average_validation_loss:.4f} | "
+        f"LR: {current_learning_rate:.6f}"
     )
 
     # -------------------------------------------------------------------------
